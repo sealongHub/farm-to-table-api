@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Farm-to-Table API</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1f2933; --muted: #6b7785; --border: #e2e6ea;
+    --accent: #2f7d4f; --code-bg: #f1f3f5;
+    --get: #2a9bb0; --post: #4aa564; --put: #e0a800; --patch: #8a63d2; --delete: #e5604f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14181c; --card: #1d2227; --text: #e6e9ec; --muted: #9aa5b1; --border: #2c343b;
+      --accent: #5cc283; --code-bg: #262d33;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Noto Sans Khmer", system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5;
+  }
+  .mono, code, pre { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
+  header {
+    background: var(--accent); color: #fff; padding: 28px 16px 22px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+  header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  header p { margin: 0; opacity: .9; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { background: rgba(255,255,255,.18); padding: 4px 10px; border-radius: 999px; font-size: .82rem; }
+  .toolbar {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    border-bottom: 1px solid var(--border); padding: 12px 0;
+  }
+  .toolbar .wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .toolbar input[type=search] {
+    flex: 1 1 240px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card); color: var(--text); font: inherit;
+  }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filters button, .tools button {
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    padding: 6px 10px; border-radius: 8px; cursor: pointer; font: inherit; font-size: .82rem;
+  }
+  .filters button.on { color: #fff; border-color: transparent; }
+  .filters button[data-m=GET].on { background: var(--get); }
+  .filters button[data-m=POST].on { background: var(--post); }
+  .filters button[data-m=PUT].on { background: var(--put); }
+  .filters button[data-m=PATCH].on { background: var(--patch); }
+  .filters button[data-m=DELETE].on { background: var(--delete); }
+  main { padding: 20px 0 60px; }
+  .group { margin-bottom: 26px; }
+  .group > h2 {
+    display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 1.25rem; cursor: pointer;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .group > h2 .count { font-size: .78rem; color: var(--muted); font-weight: 400; }
+  .group > h2 .arrow { transition: transform .15s; color: var(--muted); }
+  .group.closed > h2 .arrow { transform: rotate(-90deg); }
+  .group.closed .ops { display: none; }
+  .group-desc { color: var(--muted); font-size: .85rem; margin: -4px 0 10px; }
+  .op {
+    background: var(--card); border: 1px solid var(--border); border-left-width: 6px;
+    border-radius: 8px; margin-bottom: 8px; overflow: hidden;
+  }
+  .op[data-m=GET] { border-left-color: var(--get); }
+  .op[data-m=POST] { border-left-color: var(--post); }
+  .op[data-m=PUT] { border-left-color: var(--put); }
+  .op[data-m=PATCH] { border-left-color: var(--patch); }
+  .op[data-m=DELETE] { border-left-color: var(--delete); }
+  .op-head { display: flex; align-items: center; gap: 12px; padding: 9px 12px; cursor: pointer; flex-wrap: wrap; }
+  .badge {
+    min-width: 72px; text-align: center; color: #fff; font-weight: 600; font-size: .8rem;
+    padding: 5px 8px; border-radius: 6px; font-family: "JetBrains Mono", monospace;
+  }
+  .op[data-m=GET] .badge { background: var(--get); }
+  .op[data-m=POST] .badge { background: var(--post); }
+  .op[data-m=PUT] .badge { background: var(--put); }
+  .op[data-m=PATCH] .badge { background: var(--patch); }
+  .op[data-m=DELETE] .badge { background: var(--delete); }
+  .path { font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: .92rem; word-break: break-all; }
+  .path i { color: var(--accent); font-style: normal; }
+  .desc { color: var(--muted); font-size: .85rem; }
+  .op-body { display: none; padding: 4px 14px 14px; border-top: 1px solid var(--border); }
+  .op.open .op-body { display: block; }
+  .op-body h4 { margin: 14px 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .op-body pre {
+    margin: 0; background: var(--code-bg); padding: 10px 12px; border-radius: 6px;
+    font-size: .82rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .op-body .none { color: var(--muted); font-size: .85rem; }
+  .try { margin-top: 12px; }
+  .try button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: .82rem;
+  }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; display: none; }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 0 0 30px; }
+  @media (max-width: 560px) { .badge { min-width: 60px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Farm-to-Table API</h1>
+    <p>ឯកសារ API សម្រាប់ Frontend</p>
+    <div class="chips">
+      <span class="chip mono">Base URL: http://localhost:8082</span>
+      <span class="chip mono">Content-Type: application/json</span>
+      <span class="chip mono">Authorization: Bearer &lt;token&gt;</span>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="wrap">
+    <input type="search" id="q" placeholder="ស្វែងរក path ឬឈ្មោះ... (ឧ. settlements, status)">
+    <div class="filters" id="filters">
+      <button data-m="GET" class="on">GET</button>
+      <button data-m="POST" class="on">POST</button>
+      <button data-m="PUT" class="on">PUT</button>
+      <button data-m="PATCH" class="on">PATCH</button>
+      <button data-m="DELETE" class="on">DELETE</button>
+    </div>
+    <div class="tools"><button id="expand">បង្ហាញទាំងអស់</button> <button id="collapse">បិទទាំងអស់</button></div>
+  </div>
+</div>
+
+<main>
+  <div class="wrap">
+    <div id="app"></div>
+    <div class="empty" id="empty">រកមិនឃើញ endpoint ទេ</div>
+  </div>
+</main>
+
+<footer>* = ចាំបាច់ (required) · ទម្រង់ថ្ងៃ yyyy-MM-dd · Pagination: ?page=0&amp;size=10&amp;sort=id,desc</footer>
+
+<script>
+const PG = "page, size, sort";
+const STAT = '{ "status": "..." }*';
+
+// E(method, path, description, query, body, response)
+const E = (m, p, d, q, b, r) => ({ m, p, d, q: q || "", b: b || "", r: r || "" });
+
+const DATA = [
+ { name: "Auth", base: "/api/auth", desc: "Login និង Register មិនត្រូវការ token", ops: [
+  E("POST","/api/auth/login","ចូលប្រព័ន្ធ","", '{ "username": "string*", "password": "string*" }', '{ "token": "string", "username": "string", "roleId": 1 }'),
+  E("POST","/api/auth/register","ចុះឈ្មោះ","", '{ "username*", "fullName", "email", "password", "companyName", "phoneNumber", "roleId" }', "string")
+ ]},
+ { name: "Users", base: "/api/users", ops: [
+  E("GET","/api/users","បញ្ជីអ្នកប្រើ",PG,"","Page<UserResponse>"),
+  E("POST","/api/users","បង្កើតអ្នកប្រើ","",'{ "username*": "4-50, [a-zA-Z0-9._-]", "fullName*", "email", "image", "rolesId*": 1,\n  "detail*": UserDetailRequest, "company": UserCompanyDto, "account*": UserAccountRequest }',"UserResponse"),
+  E("GET","/api/users/{id}","ទាញតាម id","","","UserResponse"),
+  E("PUT","/api/users/{id}","កែអ្នកប្រើ","",'{ "fullName", "image", "status", "rolesId", "detail", "company", "account" }',"UserResponse"),
+  E("DELETE","/api/users/{id}","លុប")
+ ], notes: 'UserDetailRequest: { userId, nationality*, cardId*, address*, dateOfBirth*, placeOfBirth, maritalStatus, userDetailId }\nUserCompanyDto: { companyName*, address, operationYears, map, partner, phoneNumber, type }\nUserAccountRequest: { accountName*, accountType*, accountNumber*, bankName* }\nUserResponse: { id, username, fullName, email, status, image, role{id,name,permissions[]}, detail, company, accounts[], createdAt, tempPassword }' },
+ { name: "User Detail", base: "/api/user_detail", ops: [
+  E("POST","/api/user_detail","បង្កើត","",'UserDetailRequest',"UserDetailEntity"),
+  E("PUT","/api/user_detail/{id}","កែ","",'UserDetailRequest',"UserDetailEntity"),
+  E("DELETE","/api/user_detail/{id}","លុប","","","string"),
+  E("GET","/api/user_detail/user/{userId}","ទាញតាម userId","","","UserDetailEntity")
+ ]},
+ { name: "Terms & Conditions", base: "/api/terms-conditions", ops: [
+  E("GET","/api/terms-conditions","ស្វែងរក","type, status, keyword, "+PG,"","Page<TermsConditionResponseDto>"),
+  E("POST","/api/terms-conditions","បង្កើត","",'{ "type*": "[A-Za-z0-9_] ≤50", "version*": "[A-Za-z0-9._-] ≤20", "content*": "string" }',"{ id, type, version, content, status }"),
+  E("GET","/api/terms-conditions/{id}","ទាញតាម id","","","TermsConditionResponseDto"),
+  E("PUT","/api/terms-conditions/{id}","កែ","",'{ "version*", "content*" }',"TermsConditionResponseDto"),
+  E("DELETE","/api/terms-conditions/{id}","លុប"),
+  E("PATCH","/api/terms-conditions/{id}/status","ប្តូរ status","",STAT,"TermsConditionResponseDto"),
+  E("GET","/api/terms-conditions/active/{type}","ទាញ version សកម្មតាមប្រភេទ","","","TermsConditionResponseDto")
+ ]},
+ { name: "User Term Agreements", base: "/api/user-term-agreements", ops: [
+  E("GET","/api/user-term-agreements","ស្វែងរក","userId, termId, status, "+PG,"","Page"),
+  E("POST","/api/user-term-agreements","យល់ព្រម","",'{ "userId*", "termId*" }',"{ id, userId, termId, termType, termVersion, agreeAt, ipAddress, userAgent, status }"),
+  E("GET","/api/user-term-agreements/{id}","ទាញតាម id"),
+  E("DELETE","/api/user-term-agreements/{id}","លុប"),
+  E("PATCH","/api/user-term-agreements/{id}/status","ប្តូរ status","",STAT),
+  E("GET","/api/user-term-agreements/check","ពិនិត្យថាបានយល់ព្រមឬនៅ","userId*, type*","","{ userId, type, termId, version, agreed }")
+ ]},
+ { name: "Statuses", base: "/api/statuses", ops: [
+  E("GET","/api/statuses","ស្វែងរក","keyword, type, "+PG,"","Page<StatusResponseDto>"),
+  E("POST","/api/statuses","បង្កើត","",'{ "code*": "[A-Za-z0-9_] ≤50", "type*": "[A-Za-z0-9_] ≤50", "description": "≤255" }',"{ id, code, description, type }"),
+  E("GET","/api/statuses/{id}","ទាញតាម id"),
+  E("PUT","/api/statuses/{id}","កែ","",'{ "description" }'),
+  E("DELETE","/api/statuses/{id}","លុប"),
+  E("GET","/api/statuses/type/{type}","ទាញតាមប្រភេទ","","","StatusResponseDto[]")
+ ]},
+ { name: "Categories", base: "/api/categories", ops: [
+  E("GET","/api/categories","បញ្ជីទាំងអស់","","","CategoryResponse[]"),
+  E("POST","/api/categories","បង្កើត","",'{ "name", "description", "status" }',"{ id, name, description, status }"),
+  E("GET","/api/categories/{id}","ទាញតាម id"),
+  E("PUT","/api/categories/{id}","កែ","",'{ "name", "description", "status" }'),
+  E("DELETE","/api/categories/{id}","លុប")
+ ]},
+ { name: "Products", base: "/api/products", ops: [
+  E("GET","/api/products","បញ្ជីទាំងអស់","","","ProductResponse[]"),
+  E("POST","/api/products","បង្កើត","",'{ "userId", "categoryId", "name", "qty", "unitPrice", "farmerPrice",\n  "expectedHavestDate", "expiredDate", "location" }',"ProductResponse (មាន id បន្ថែម)"),
+  E("GET","/api/products/{id}","ទាញតាម id"),
+  E("PUT","/api/products/{id}","កែ","",'ProductRequest'),
+  E("DELETE","/api/products/{id}","លុប")
+ ]},
+ { name: "Product Images", base: "/api/products/{productId}/images", desc: "រូបភាពជារបស់ product ដូច្នេះ path មាន productId ជានិច្ច។ productId + path ស្ទួន → 409។", ops: [
+  E("GET","/api/products/{productId}/images","បញ្ជីរូបភាពរបស់ product","path (ស្វែងរក), "+PG,"","Page<{ id, productId, path }>"),
+  E("POST","/api/products/{productId}/images","បន្ថែមរូបភាព (201)","",'{ "path*": "≤500" }','{ "id": 1, "productId": 1, "path": "/uploads/banana-1.jpg" }'),
+  E("GET","/api/products/{productId}/images/{id}","ទាញតាម id"),
+  E("PUT","/api/products/{productId}/images/{id}","កែ","",'{ "path*" }'),
+  E("DELETE","/api/products/{productId}/images/{id}","លុប (204)")
+ ]},
+ { name: "Product Rejects", base: "/api/product-rejects", ops: [
+  E("GET","/api/product-rejects","ស្វែងរក","userId, categoryId, status (boolean), keyword, "+PG,"","Page<ProductRejectDto>"),
+  E("POST","/api/product-rejects","បង្កើត","",'{ "userId*", "categoryId*", "name*", "qty*", "unitPrice", "farmerPrice",\n  "expectedHavestDate", "expiredDate", "location", "reason",\n  "availableQty", "soldQty", "status": true }',"ProductRejectDto (មាន id)"),
+  E("GET","/api/product-rejects/{id}","ទាញតាម id"),
+  E("PUT","/api/product-rejects/{id}","កែ","",'ProductRejectDto'),
+  E("DELETE","/api/product-rejects/{id}","លុប")
+ ]},
+ { name: "Product Checkers", base: "/api/product-checkers", ops: [
+  E("GET","/api/product-checkers","បញ្ជី",PG,"","Page<ProductCheckerDto>"),
+  E("POST","/api/product-checkers","បង្កើត","",'{ "productId*", "checkBy*", "checkedAt" }',"{ id, productId, checkBy, checkedAt }"),
+  E("GET","/api/product-checkers/{id}","ទាញតាម id"),
+  E("PUT","/api/product-checkers/{id}","កែ","",'ProductCheckerDto'),
+  E("DELETE","/api/product-checkers/{id}","លុប"),
+  E("GET","/api/product-checkers/product/{productId}","ទាញតាម product","","","ProductCheckerDto[]"),
+  E("DELETE","/api/product-checkers/product/{productId}","លុបទាំងអស់របស់ product")
+ ]},
+ { name: "Product Handovers", base: "/api/product-handovers", ops: [
+  E("GET","/api/product-handovers","ស្វែងរក","fromType, fromId, toType, toId, status, "+PG,"","Page"),
+  E("POST","/api/product-handovers","បង្កើតការប្រគល់","",'{ "fromType*", "fromId*", "toType*", "toId*", "qty*", "note": "≤255" }',"{ id, fromType, fromId, toType, toId, qty, statusId, status, receiveBy, note }"),
+  E("GET","/api/product-handovers/{id}","ទាញតាម id"),
+  E("PUT","/api/product-handovers/{id}","កែ","",'ProductHandoverRequestDto'),
+  E("DELETE","/api/product-handovers/{id}","លុប"),
+  E("PATCH","/api/product-handovers/{id}/status","ប្តូរ status","",'{ "status*", "receiveBy" }')
+ ]},
+ { name: "Warehouses", base: "/api/warehouses", ops: [
+  E("GET","/api/warehouses","ស្វែងរក","keyword, "+PG,"","Page<WareHouseResponseDto>"),
+  E("GET","/api/warehouses/all","បញ្ជីទាំងអស់ (គ្មាន page)","","","WareHouseResponseDto[]"),
+  E("POST","/api/warehouses","បង្កើត","",'{ "name*": "≤100", "description": "≤255", "address*": "≤255", "capacity*": 0.0, "capacityUnit": 0.0 }',"{ id, name, description, address, capacity, capacityUnit }"),
+  E("GET","/api/warehouses/{id}","ទាញតាម id"),
+  E("PUT","/api/warehouses/{id}","កែ","",'WareHouseRequestDto'),
+  E("DELETE","/api/warehouses/{id}","លុប")
+ ]},
+ { name: "Warehouse Stocks", base: "/api/warehouse-stocks", desc: "ស្តុកគួរប្តូរតាម Stock Transactions ដើម្បីមានប្រវត្តិ។ PUT / reserve / release / adjust ផ្ទាល់មិនកត់ប្រវត្តិទេ។", ops: [
+  E("GET","/api/warehouse-stocks","ស្វែងរក","warehouseId, productId, lowStock, "+PG,"","Page<WarehouseStockResponseDto>"),
+  E("POST","/api/warehouse-stocks","បង្កើត","",'{ "warehouseId*": "string", "productId*": "string", "qty*": 0 }',"{ id, warehouseId, productId, qty, reservedQty, availableQty }"),
+  E("GET","/api/warehouse-stocks/{id}","ទាញតាម id"),
+  E("PUT","/api/warehouse-stocks/{id}","កែចំនួន","",'{ "qty*": 0 }'),
+  E("DELETE","/api/warehouse-stocks/{id}","លុប"),
+  E("PATCH","/api/warehouse-stocks/{id}/reserve","កក់ស្តុក","",'{ "qty*": 0 }'),
+  E("PATCH","/api/warehouse-stocks/{id}/release","ដោះការកក់","",'{ "qty*": 0 }'),
+  E("PATCH","/api/warehouse-stocks/{id}/adjust","កែតម្រូវ (delta អាចអវិជ្ជមាន)","",'{ "delta*": 0 }')
+ ]},
+ { name: "Stock Transactions", base: "/api/stock-transactions", desc: "Ledger គ្មាន PUT/DELETE។ IN: on-hand+qty | OUT: on-hand−qty | RESERVE: reserved+qty | RELEASE: reserved−qty។ ស្តុកមិនគ្រប់ → 409។", ops: [
+  E("GET","/api/stock-transactions","ស្វែងរក (id ថយក្រោយ)","warehouseId, productId, type (IN|OUT|RESERVE|RELEASE), statusId, from, to, "+PG,"","Page<StockTransactionResponseDto>"),
+  E("POST","/api/stock-transactions","បង្កើត transaction (201)","",'{\n  "warehouseId*": 1, "productId*": 1,\n  "transactionType*": "IN | OUT | RESERVE | RELEASE",\n  "qty*": 100, "statusId*": 1,\n  "refNo": "REF-001", "handoverId": null, "approvedById": null\n}','{\n  "id": 2, "warehouseId": 1, "productId": 1, "handoverId": null,\n  "transactionType": "IN", "qty": 100,\n  "qtyBefore": 200, "qtyAfter": 300, "reservedQty": 0,\n  "refNo": "REF-001", "statusId": 1, "statusCode": "PENDING",\n  "approvedById": null, "postedAt": "2026-11-01T09:53:28"\n}'),
+  E("GET","/api/stock-transactions/{id}","ទាញតាម id")
+ ]},
+ { name: "Settlements", base: "/api/settlements", desc: "Status: PENDING→PROCESSING, PROCESSING→COMPLETED/FAILED, FAILED→PENDING។ កែបានតែ PENDING, លុបបានតែ PENDING/FAILED។", ops: [
+  E("GET","/api/settlements","ស្វែងរក","ccy, status, from, to, "+PG,"","Page<SettlementResponseDto>"),
+  E("POST","/api/settlements","បង្កើត (201)","",'{ "settlementDate*": "2026-10-29", "ccy*": "USD", "totalAmount*": 1250.75 }','{ "id": 1, "settlementDate": "2026-10-29", "ccy": "USD",\n  "totalAmount": 1250.75, "status": "PENDING", "processAt": null }'),
+  E("GET","/api/settlements/{id}","ទាញតាម id"),
+  E("PUT","/api/settlements/{id}","កែ (បានតែ PENDING)","",'SettlementRequestDto'),
+  E("DELETE","/api/settlements/{id}","លុប (204)"),
+  E("PATCH","/api/settlements/{id}/status","ប្តូរ status","",'{ "status*": "PROCESSING" }')
+ ]},
+ { name: "Farmer Payments", base: "/api/farmer-payments", ops: [
+  E("GET","/api/farmer-payments","ស្វែងរក","accountId, settlementId, status, keyword, "+PG,"","Page<FarmerPaymentResponseDto>"),
+  E("POST","/api/farmer-payments","បង្កើត","",'{ "accountId*", "settlementId*" }',"{ id, accountId, accountName, bankName, accountNumber, userId, userFullName,\n  settlementId, amount, ccy, status, transactionRef, paidAt }"),
+  E("GET","/api/farmer-payments/{id}","ទាញតាម id"),
+  E("PUT","/api/farmer-payments/{id}","កែ","",'{ "accountId*" }'),
+  E("DELETE","/api/farmer-payments/{id}","លុប"),
+  E("PATCH","/api/farmer-payments/{id}/status","ប្តូរ status","",STAT),
+  E("GET","/api/farmer-payments/ref/{transactionRef}","ទាញតាម transactionRef")
+ ]},
+ { name: "Customers", base: "/api/customers", ops: [
+  E("GET","/api/customers","ស្វែងរក","keyword, status, "+PG,"","Page<CustomerResponseDto>"),
+  E("POST","/api/customers","បង្កើត","",'{ "fullNameKh*", "fullNameEn*", "email*", "password": "6-100",\n  "status", "phoneNumber": "^[0-9+\\\\-\\\\s]{8,15}$", "image" }',"{ id, fullNameKh, fullNameEn, email, status, phoneNumber, image }"),
+  E("GET","/api/customers/{id}","ទាញតាម id"),
+  E("PUT","/api/customers/{id}","កែ","",'CustomerRequestDto'),
+  E("DELETE","/api/customers/{id}","លុប")
+ ]},
+ { name: "Orders", base: "/api/orders", ops: [
+  E("GET","/api/orders","ស្វែងរក","customerId, status, keyword, "+PG,"","Page<OrderResponseDto>"),
+  E("POST","/api/orders","បង្កើត","",'{ "customerId*", "deliveryAddress*": "≤255", "totalAmount*": 0.0 }',"{ id, customerId, orderNumber, orderStatus, totalAmount, deliveryAddress, statusId }"),
+  E("GET","/api/orders/{id}","ទាញតាម id"),
+  E("PUT","/api/orders/{id}","កែ","",'{ "deliveryAddress*", "totalAmount*" }'),
+  E("DELETE","/api/orders/{id}","លុប"),
+  E("PATCH","/api/orders/{id}/status","ប្តូរ status","",STAT),
+  E("GET","/api/orders/number/{orderNumber}","ទាញតាមលេខ order")
+ ]},
+ { name: "Order Details", base: "/api/order-details", ops: [
+  E("GET","/api/order-details","បញ្ជី (return array)","orderId, page (0), size (10)","","OrderDetailResponseDto[]"),
+  E("POST","/api/order-details","បង្កើត","",'{ "orderId*", "productId*", "qty*": "≥1", "unitPrice*", "paymentMethodId*", "otherMethodId" }',"{ id, orderId, productId, qty, unitPrice, subTotal, otherMethodId,\n  paymentMethodId, createdAt, updatedAt }"),
+  E("GET","/api/order-details/{id}","ទាញតាម id"),
+  E("PUT","/api/order-details/{id}","កែ","",'OrderDetailRequestDto'),
+  E("DELETE","/api/order-details/{id}","លុប")
+ ]},
+ { name: "Order Status Histories", base: "/api/order-status-histories", ops: [
+  E("GET","/api/order-status-histories","បញ្ជី (return array)","orderId, page (0), size (10)","","OrderStatusHistoryResponseDto[]"),
+  E("POST","/api/order-status-histories","បង្កើត","",'{ "orderId*", "newStatusId*", "orderStatusId", "remark", "changeAt" }',"{ id, orderId, orderStatusId, newStatusId, remark, changeAt, createdAt, updatedAt }"),
+  E("GET","/api/order-status-histories/{id}","ទាញតាម id"),
+  E("PUT","/api/order-status-histories/{id}","កែ","",'OrderStatusHistoryRequestDto'),
+  E("DELETE","/api/order-status-histories/{id}","លុប")
+ ]},
+ { name: "Payments", base: "/api/payments", ops: [
+  E("GET","/api/payments","ស្វែងរក","orderId, customerId, status, keyword, "+PG,"","Page<PaymentResponseDto>"),
+  E("POST","/api/payments","បង្កើត","",'{ "orderId*", "paymentMethodId*" }',"{ id, orderId, customerId, ref, amount, paymentMethodId, paymentMethod,\n  paymentStatusId, paymentStatus, paidAt }"),
+  E("GET","/api/payments/{id}","ទាញតាម id"),
+  E("PUT","/api/payments/{id}","កែ","",'{ "paymentMethodId*" }'),
+  E("DELETE","/api/payments/{id}","លុប"),
+  E("PATCH","/api/payments/{id}/status","ប្តូរ status","",STAT),
+  E("GET","/api/payments/ref/{ref}","ទាញតាម ref")
+ ]},
+ { name: "Payment Methods", base: "/api/payment-methods", ops: [
+  E("GET","/api/payment-methods","ស្វែងរក","keyword, "+PG,"","Page<PaymentMethodResponseDto>"),
+  E("GET","/api/payment-methods/all","បញ្ជីទាំងអស់ (គ្មាន page)","","","PaymentMethodResponseDto[]"),
+  E("POST","/api/payment-methods","បង្កើត","",'{ "code*": "[A-Za-z0-9_] ≤50", "title*": "≤100", "description": "≤255" }',"{ id, code, title, description }"),
+  E("GET","/api/payment-methods/{id}","ទាញតាម id"),
+  E("PUT","/api/payment-methods/{id}","កែ","",'{ "title*", "description" }'),
+  E("DELETE","/api/payment-methods/{id}","លុប")
+ ]},
+ { name: "Delivery Fees", base: "/api/delivery-fees", ops: [
+  E("GET","/api/delivery-fees","បញ្ជី (return array)","keyword, page (0), size (10)","","FeeDeliveryResponseDto[]"),
+  E("POST","/api/delivery-fees","បង្កើត","",'{ "code*", "amount*", "description" }',"{ id, code, amount, description, createdAt, updatedAt }"),
+  E("GET","/api/delivery-fees/{id}","ទាញតាម id"),
+  E("PUT","/api/delivery-fees/{id}","កែ","",'FeeDeliveryRequestDto'),
+  E("DELETE","/api/delivery-fees/{id}","លុប")
+ ]},
+ { name: "Deliveries", base: "/api/deliveries", ops: [
+  E("GET","/api/deliveries","បញ្ជី (return array)","orderId, statusId, page (0), size (10)","","{ id, orderId, assignTo, deliveryAddress, deliveryFeeId, scheduleAt,\n  deliveryAt, statusId, remarks, createdAt, updatedAt }[]")
+ ]}
+];
+
+const app = document.getElementById("app");
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const hlPath = p => esc(p).replace(/\{(\w+)\}/g, '<i>{$1}</i>');
+
+function section(title, content, isCode) {
+  if (!content) return `<h4>${title}</h4><div class="none">គ្មាន</div>`;
+  return `<h4>${title}</h4><pre>${esc(content)}</pre>`;
+}
+
+DATA.forEach((g, gi) => {
+  const el = document.createElement("section");
+  el.className = "group";
+  el.innerHTML = `
+    <h2><span class="arrow">▾</span>${esc(g.name)} <span class="count mono">${g.ops.length}</span></h2>
+    ${g.desc ? `<div class="group-desc">${esc(g.desc)}</div>` : ""}
+    <div class="ops">${g.ops.map(o => `
+      <div class="op" data-m="${o.m}" data-s="${esc((o.m+" "+o.p+" "+o.d+" "+g.name).toLowerCase())}">
+        <div class="op-head">
+          <span class="badge">${o.m}</span>
+          <span class="path">${hlPath(o.p)}</span>
+          <span class="desc">${esc(o.d)}</span>
+        </div>
+        <div class="op-body">
+          ${section("Query parameters", o.q)}
+          ${section("Request body", o.b)}
+          ${section("Response", o.r)}
+          <div class="try"><button data-copy="${esc(o.m+" http://localhost:8082"+o.p)}">ចម្លង URL</button></div>
+        </div>
+      </div>`).join("")}
+      ${g.notes ? `<div class="op"><div class="op-body" style="display:block;border:0"><h4>Schemas</h4><pre>${esc(g.notes)}</pre></div></div>` : ""}
+    </div>`;
+  app.appendChild(el);
+});
+
+// interactions
+app.addEventListener("click", e => {
+  const h2 = e.target.closest(".group > h2");
+  if (h2) { h2.parentElement.classList.toggle("closed"); return; }
+  const btn = e.target.closest("[data-copy]");
+  if (btn) {
+    const t = btn.dataset.copy.split(" ")[1];
+    navigator.clipboard?.writeText(t);
+    const old = btn.textContent; btn.textContent = "បានចម្លង ✓";
+    setTimeout(() => btn.textContent = old, 1200);
+    return;
+  }
+  const head = e.target.closest(".op-head");
+  if (head) head.parentElement.classList.toggle("open");
+});
+
+const q = document.getElementById("q");
+const active = new Set(["GET","POST","PUT","PATCH","DELETE"]);
+function apply() {
+  const term = q.value.trim().toLowerCase();
+  let total = 0;
+  document.querySelectorAll(".group").forEach(g => {
+    let shown = 0;
+    g.querySelectorAll(".op[data-m]").forEach(op => {
+      const ok = active.has(op.dataset.m) && (!term || op.dataset.s.includes(term));
+      op.style.display = ok ? "" : "none";
+      if (ok) shown++;
+    });
+    g.style.display = shown ? "" : "none";
+    if (term && shown) g.classList.remove("closed");
+    total += shown;
+  });
+  document.getElementById("empty").style.display = total ? "none" : "block";
+}
+q.addEventListener("input", apply);
+document.getElementById("filters").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  b.classList.toggle("on");
+  b.classList.contains("on") ? active.add(b.dataset.m) : active.delete(b.dataset.m);
+  apply();
+});
+document.getElementById("expand").onclick = () => {
+  document.querySelectorAll(".group").forEach(g => g.classList.remove("closed"));
+  document.querySelectorAll(".op[data-m]").forEach(o => o.classList.add("open"));
+};
+document.getElementById("collapse").onclick = () => {
+  document.querySelectorAll(".op").forEach(o => o.classList.remove("open"));
+};
+</script>
+</body>
+</html>
